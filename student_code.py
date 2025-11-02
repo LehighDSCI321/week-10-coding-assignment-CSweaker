@@ -1,7 +1,3 @@
-from collections import deque
-from typing import Any, Generator, List, Set
-
-
 class VersatileDigraph:
     """
     A versatile directed graph class that supports adding nodes, edges, and 
@@ -18,18 +14,20 @@ class VersatileDigraph:
         self.nodes = set()
         self.edges = {}  # Key: node, Value: set of neighboring nodes
 
-    def add_node(self, node: Any) -> None:
+    def add_node(self, node, *args, **kwargs):
         """
         Add a node to the graph (no duplicate addition if the node already exists).
         
         Args:
             node: The node to be added (must be a hashable type).
+            *args: Additional positional arguments (ignored for compatibility).
+            **kwargs: Additional keyword arguments (ignored for compatibility).
         """
         self.nodes.add(node)
         if node not in self.edges:
             self.edges[node] = set()
 
-    def add_edge(self, u: Any, v: Any) -> None:
+    def add_edge(self, u, v):
         """
         Add a directed edge from node u to node v (automatically adds nodes 
         that do not exist).
@@ -42,7 +40,7 @@ class VersatileDigraph:
         self.add_node(v)  # Ensure the end node exists
         self.edges[u].add(v)  # Add the edge u->v
 
-    def get_neighbors(self, node: Any) -> Set[Any]:
+    def get_neighbors(self, node):
         """
         Retrieve all neighbors of a specified node (i.e., nodes pointed to by 
         the given node).
@@ -56,7 +54,7 @@ class VersatileDigraph:
         """
         return self.edges.get(node, set())
 
-    def get_all_nodes(self) -> List[Any]:
+    def get_all_nodes(self):
         """
         Retrieve a list of all nodes in the graph.
         
@@ -73,7 +71,7 @@ class SortableDigraph(VersatileDigraph):
     graphs (DAGs).
     """
 
-    def top_sort(self) -> List[Any]:
+    def top_sort(self):
         """
         Perform topological sorting on the graph using Kahn's algorithm (only 
         applicable to DAGs).
@@ -98,14 +96,14 @@ class SortableDigraph(VersatileDigraph):
                 in_degree[neighbor] += 1
 
         # Initialize queue with nodes having in-degree 0
-        queue = deque()
+        queue = []
         for n in self.nodes:
             if in_degree[n] == 0:
                 queue.append(n)
 
         top_order = []
         while queue:
-            current = queue.popleft()
+            current = queue.pop(0)  # Use list as queue (FIFO)
             top_order.append(current)
             # Process all neighbors of the current node, decrement their in-degree
             for neighbor in self.get_neighbors(current):
@@ -122,7 +120,7 @@ class TraversableDigraph(SortableDigraph):
     adds DFS and BFS traversal methods.
     """
 
-    def dfs(self, start: Any) -> Generator[Any, None, None]:
+    def dfs(self, start):
         """
         Perform a depth-first search traversal starting from the given node.
         
@@ -130,7 +128,7 @@ class TraversableDigraph(SortableDigraph):
             start: The starting node for the traversal.
             
         Returns:
-            Generator: A generator yielding nodes in DFS order.
+            Generator: A generator yielding nodes in DFS order (excluding start node).
         """
         if start not in self.nodes:
             return
@@ -142,13 +140,15 @@ class TraversableDigraph(SortableDigraph):
             current_node = stack.pop()
             if current_node not in visited:
                 visited.add(current_node)
-                yield current_node
-                # Convert set to list before reversing
-                for neighbor in reversed(list(self.get_neighbors(current_node))):
+                if current_node != start:  # Skip the start node
+                    yield current_node
+                # Add neighbors in reverse order to maintain consistent order
+                neighbors = list(self.get_neighbors(current_node))
+                for neighbor in reversed(neighbors):
                     if neighbor not in visited:
                         stack.append(neighbor)
 
-    def bfs(self, start: Any) -> Generator[Any, None, None]:
+    def bfs(self, start):
         """
         Perform a breadth-first search traversal starting from the given node.
         
@@ -156,19 +156,21 @@ class TraversableDigraph(SortableDigraph):
             start: The starting node for the traversal.
             
         Returns:
-            Generator: A generator yielding nodes in BFS order.
+            Generator: A generator yielding nodes in BFS order (excluding start node).
         """
         if start not in self.nodes:
             return
         
         visited = set([start])
-        queue = deque([start])
+        queue = []
         
-        # Skip the start node itself (as per test expectations)
-        queue.popleft()
+        # Add all neighbors of start to queue
+        for neighbor in self.get_neighbors(start):
+            visited.add(neighbor)
+            queue.append(neighbor)
         
         while queue:
-            current_node = queue.popleft()
+            current_node = queue.pop(0)  # Use list as queue (FIFO)
             yield current_node
             for neighbor in self.get_neighbors(current_node):
                 if neighbor not in visited:
@@ -182,7 +184,7 @@ class DAG(TraversableDigraph):
     It ensures that no cycles are created when adding edges.
     """
 
-    def _has_path(self, start: Any, end: Any) -> bool:
+    def _has_path(self, start, end):
         """
         Check if there is a path from start node to end node using BFS.
         
@@ -197,10 +199,10 @@ class DAG(TraversableDigraph):
             return True
             
         visited = set([start])
-        queue = deque([start])
+        queue = [start]
         
         while queue:
-            current_node = queue.popleft()
+            current_node = queue.pop(0)
             for neighbor in self.get_neighbors(current_node):
                 if neighbor == end:
                     return True
@@ -210,7 +212,7 @@ class DAG(TraversableDigraph):
                     
         return False
 
-    def add_edge(self, u: Any, v: Any) -> None:
+    def add_edge(self, u, v):
         """
         Add a directed edge from node u to node v only if it does not create a cycle.
         
@@ -229,17 +231,17 @@ class DAG(TraversableDigraph):
         # If no cycle is created, add the edge using the parent class method
         super().add_edge(u, v)
 
-    def successors(self, node: Any) -> List[Any]:
+    def successors(self, node):
         """
-        Return a list of successor nodes for the given node.
+        Return a sorted list of successor nodes for the given node.
         
         Args:
             node: The node to get successors for.
             
         Returns:
-            list: A list of successor nodes.
+            list: A sorted list of successor nodes.
         """
-        return list(self.get_neighbors(node))
+        return sorted(self.get_neighbors(node))
 
 
 # Example usage with the clothing graph
